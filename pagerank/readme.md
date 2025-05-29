@@ -1,0 +1,1 @@
+python run_experiment.py --nodes 500 --edge_density 0.02 --seed_count 5

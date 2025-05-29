@@ -1,0 +1,13 @@
+# params.yaml
+# Default hyperparameters for full HIM implementation
+
+nodes: 1000
+edge_density: 0.01
+seed_count: 10
+prop_instances: 30
+dim: 64          # embedding dimension (must be even)
+epochs: 200
+beta: 3.0
+ic_prob: 0.05
+neg_samples: 5
+gamma: 1.0

@@ -1,0 +1,1 @@
+python run_experiment.py   --nodes 2000   --edge_density 0.005   --seed_count 20   --prop_instances 50   --epochs 300   --dim 64   --beta 3.0
