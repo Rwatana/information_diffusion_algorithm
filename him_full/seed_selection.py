@@ -12,7 +12,7 @@ from typing import List
 import networkx as nx
 import torch
 
-from hyperbolic_utils import lorentz_distance2, device
+from .hyperbolic_utils import lorentz_distance2, device
 
 def adaptive_sliding_window(
     G: nx.DiGraph,

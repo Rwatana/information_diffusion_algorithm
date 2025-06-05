@@ -1,0 +1,7 @@
+# .streamlit/config.toml
+[server]
+port = 8888            # 好きなポート
+runOnSave = true       # ← ファイル変更で自動再起動
+# 必要なら:
+# fileWatcherType = "watchdog"   # ネットワーク越しでも安定して監視したい場合
+watchdog = false

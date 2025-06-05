@@ -14,11 +14,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import random
 
-from hyperbolic_utils import (
+from .hyperbolic_utils import (  # 先頭にドットを追加
     project_to_lorentz,
     lorentz_distance2,
     rotate,
-    device,
+    device, # device 変数が hyperbolic_utils.py に定義されていれば
 )
 
 class HIMModel(nn.Module):
