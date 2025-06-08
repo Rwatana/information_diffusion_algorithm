@@ -4,6 +4,8 @@ import os
 import networkx as nx
 from streamlit_agraph import agraph, Node, Edge, Config
 import random
+import json
+from datetime import datetime
 
 # --- Path settings ---
 # This ensures that the script can find the 'datagen' module
@@ -14,7 +16,56 @@ project_root_dir = os.path.abspath(os.path.join(streamlit_dir, '..')) # hercules
 if project_root_dir not in sys.path:
     sys.path.append(project_root_dir)
 
-from datagen.data_utils import generate_graph # Import from the datagen module
+# Directory for saving generated graphs
+SAVE_DIR = os.path.join(streamlit_dir, "saved_graphs")
+os.makedirs(SAVE_DIR, exist_ok=True)
+
+from datagen.data_utils import generate_graph
+
+# --- Helper functions for saving/loading graphs ---
+def save_graph_with_weights(G: nx.Graph, base_name: str = "graph") -> str:
+    """Save graph structure including edge weights."""
+    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    folder_name = f"{base_name}_{timestamp}"
+    folder_path = os.path.join(SAVE_DIR, folder_name)
+    os.makedirs(folder_path, exist_ok=True)
+
+    graph_data = {
+        "nodes": list(G.nodes()),
+        "edges": [
+            [u, v, G[u][v].get("weight", 0.0)]
+            for u, v in G.edges()
+        ],
+        "directed": G.is_directed(),
+    }
+    with open(os.path.join(folder_path, "graph.json"), "w") as f:
+        json.dump(graph_data, f)
+    return folder_path
+
+
+def load_graph_with_weights(folder_path: str) -> nx.Graph:
+    """Load a previously saved graph with weights."""
+    try:
+        with open(os.path.join(folder_path, "graph.json"), "r") as f:
+            data = json.load(f)
+    except Exception:
+        return None
+    G = nx.DiGraph() if data.get("directed", True) else nx.Graph()
+    G.add_nodes_from(data.get("nodes", []))
+    for u, v, w in data.get("edges", []):
+        G.add_edge(u, v, weight=w)
+    return G
+
+
+def list_saved_graphs() -> list:
+    if not os.path.exists(SAVE_DIR):
+        return []
+    return sorted([
+        d
+        for d in os.listdir(SAVE_DIR)
+        if os.path.isdir(os.path.join(SAVE_DIR, d))
+        and os.path.exists(os.path.join(SAVE_DIR, d, "graph.json"))
+    ], reverse=True)
 
 st.set_page_config(layout="wide", page_title="Graph Visualization & Edge Probabilities")
 st.title("Graph Visualization & Edge Propagation Probability Setting")
@@ -25,6 +76,8 @@ st.sidebar.header("Graph Generation Parameters")
 num_nodes = st.sidebar.slider("Number of Nodes", 5, 100, 20, key="gv_num_nodes_static")
 edge_density = st.sidebar.slider("Edge Density", 0.01, 0.5, 0.1, key="gv_edge_density_static")
 is_directed = st.sidebar.checkbox("Directed Graph", True, key="gv_is_directed_static")
+prob_min = st.sidebar.slider("Min Propagation Probability", 0.0, 1.0, 0.01, 0.01, key="gv_prob_min_static")
+prob_max = st.sidebar.slider("Max Propagation Probability", 0.0, 1.0, 0.2, 0.01, key="gv_prob_max_static")
 
 # Graph generation/regeneration logic
 # Using unique session state keys for this static version
@@ -41,13 +94,10 @@ if graph_key_base_static not in st.session_state or \
     st.session_state['gv_edge_density_param_static'] = edge_density
     st.session_state['gv_is_directed_param_static'] = is_directed
     
-    G_base = generate_graph(num_nodes, edge_density, directed=is_directed)
+    G_base = generate_graph(num_nodes, edge_density, directed=is_directed, min_weight=prob_min, max_weight=prob_max)
     st.session_state[graph_key_base_static] = G_base
-    
-    # If base graph changes, reset the weighted graph from session state if it exists
-    if graph_key_weighted_static in st.session_state:
-        del st.session_state[graph_key_weighted_static]
-    st.sidebar.info("Graph parameters changed. Graph regenerated. Please re-assign propagation probabilities if needed.")
+    st.session_state[graph_key_weighted_static] = G_base
+    st.sidebar.info("Graph regenerated with propagation probabilities assigned.")
 else:
     # Use existing graph from session state
     G_base = st.session_state[graph_key_base_static]
@@ -55,8 +105,6 @@ else:
 # --- Sidebar for edge propagation probability settings ---
 st.sidebar.markdown("---")
 st.sidebar.header("Edge Propagation Probability Settings")
-prob_min = st.sidebar.slider("Min Propagation Probability", 0.0, 1.0, 0.01, 0.01, key="gv_prob_min_static")
-prob_max = st.sidebar.slider("Max Propagation Probability", 0.0, 1.0, 0.2, 0.01, key="gv_prob_max_static")
 
 assign_disabled = False
 if prob_min > prob_max:
@@ -75,6 +123,39 @@ if st.sidebar.button("Assign Random Propagation Probabilities to Edges", disable
         st.sidebar.warning("Please generate a graph first using the parameters above.")
     else: # G_base exists but has no nodes
         st.sidebar.warning("The generated graph has no nodes. Please adjust generation parameters.")
+
+# --- Save / Load graph section ---
+st.sidebar.markdown("---")
+st.sidebar.header("Save / Load Graph")
+save_name = st.sidebar.text_input("Save name", value="graph", key="gv_save_name")
+if st.sidebar.button("Save current graph", key="gv_save_button"):
+    current_graph = st.session_state.get(graph_key_weighted_static, G_base)
+    if current_graph and current_graph.number_of_nodes() > 0:
+        saved_path = save_graph_with_weights(current_graph, save_name)
+        st.sidebar.success(f"Graph saved: {os.path.basename(saved_path)}")
+    else:
+        st.sidebar.warning("No graph available to save.")
+
+saved_graphs = list_saved_graphs()
+selected_saved = st.sidebar.selectbox(
+    "Load saved graph",
+    saved_graphs,
+    index=None,
+    placeholder="Select folder...",
+    key="gv_select_saved",
+)
+if st.sidebar.button("Load selected graph", key="gv_load_button"):
+    if selected_saved:
+        G_loaded = load_graph_with_weights(os.path.join(SAVE_DIR, selected_saved))
+        if G_loaded:
+            st.session_state[graph_key_base_static] = G_loaded
+            st.session_state[graph_key_weighted_static] = G_loaded
+            st.sidebar.success(f"Loaded graph: {selected_saved}")
+            st.rerun()
+        else:
+            st.sidebar.error("Failed to load selected graph.")
+    else:
+        st.sidebar.warning("Please select a saved graph.")
 
 
 # --- Main page display ---
