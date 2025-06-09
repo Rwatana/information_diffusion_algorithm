@@ -1,237 +1,243 @@
 import streamlit as st
 import pandas as pd
-import random
 import sys
 import os
 import networkx as nx
 from streamlit_agraph import agraph, Node, Edge, Config
-import torch # HIMモデルがPyTorchを使用する場合
+import torch # HIMモデルがPyTorchを使用
 
-# --- パス設定 ---
-current_dir = os.path.dirname(__file__)
-streamlit_dir = os.path.abspath(os.path.join(current_dir, '..'))
-project_root_dir = os.path.abspath(os.path.join(streamlit_dir, '..'))
-sys.path.append(project_root_dir)
+# --- パス設定とモジュールのインポート ---
+try:
+    # このスクリプト(5_him_simulation.py)の場所を基準にプロジェクトルートを特定
+    current_file_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(current_file_dir, '..', '..'))
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+    
+    # 必要なモジュールをインポート
+    from datagen.data_utils import simulate_ic, generate_propagations
+    from him_full.him_model import HIMModel
+    from him_full.seed_selection import adaptive_sliding_window
+except (ImportError, ModuleNotFoundError) as e:
+    st.error(f"必要なモジュールの読み込みに失敗しました: {e}")
+    st.info("プロジェクトのディレクトリ構造 (`datagen`, `him_full` フォルダ) が正しいか確認してください。")
+    st.stop()
 
-from datagen.data_utils import simulate_ic, generate_propagations # generate_propagationsもインポート
-from him_full.him_model import HIMModel # HIMモデルクラスをインポート
-from him_full.seed_selection import adaptive_sliding_window # シード選択アルゴリズム
 
-st.set_page_config(layout="wide", page_title="HIM シミュレーション")
+# --- 定数とディレクトリ設定 ---
+SAVE_DIR_NAME = "saved_graphs"
+# このスクリプトと同じ階層にある`saved_graphs`を保存場所とする
+SAVE_DIR_PATH = os.path.join(current_file_dir, SAVE_DIR_NAME)
+if not os.path.exists(SAVE_DIR_PATH):
+    st.error(f"保存ディレクトリが見つかりません: {SAVE_DIR_PATH}")
+    st.info("`1_graph_visualization.py`ページでグラフを保存すると、自動的に作成されます。")
+    st.stop()
+
+
+# --- ヘルパー関数 ---
+def load_graph_from_json(folder_name):
+    """フォルダ名を受け取り、その中のgraph_data.jsonを読み込みます。"""
+    filepath = os.path.join(SAVE_DIR_PATH, folder_name, 'graph_data.json')
+    try:
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        return nx.node_link_graph(data)
+    except Exception as e:
+        st.error(f"グラフ読込エラー: {e}")
+        return None
+
+def get_saved_graph_files():
+    """保存されているグラフの「フォルダ」リストを取得します。"""
+    if not os.path.exists(SAVE_DIR_PATH): return []
+    return sorted([d for d in os.listdir(SAVE_DIR_PATH) if os.path.isdir(os.path.join(SAVE_DIR_PATH, d))], reverse=True)
+
+
+# --- セッションステートの初期化 ---
+# このページ専用のキーを使用
+if 'him_graph' not in st.session_state:
+    st.session_state.him_graph = None
+if 'him_graph_name' not in st.session_state:
+    st.session_state.him_graph_name = "未選択"
+if 'him_simulation_results' not in st.session_state:
+    st.session_state.him_simulation_results = None
+
+
+# --- サイドバー ---
+st.sidebar.title("HIM Simulation")
+st.sidebar.header("Step 1: グラフを選択")
+
+saved_files = get_saved_graph_files()
+if not saved_files:
+    st.sidebar.error("読み込み可能なグラフがありません。")
+else:
+    selected_file = st.sidebar.selectbox(
+        "グラフを選択:", 
+        [""] + saved_files, 
+        format_func=lambda x: "ファイルを選択" if x == "" else x,
+        key="him_load_selector"
+    )
+    if st.sidebar.button("グラフを読み込み", disabled=not selected_file):
+        graph = load_graph_from_json(selected_file)
+        if graph:
+            st.session_state.him_graph = graph
+            st.session_state.him_graph_name = selected_file
+            st.session_state.him_simulation_results = None # 結果をリセット
+            st.toast(f"`{selected_file}` を読み込みました。", icon="✅")
+            st.rerun()
+
+# --- メインエリア ---
 st.title("HIM ベースの影響最大化シミュレーション")
 
-graph_key = 'gv_graph' # グラフ可視化ページで設定されたグラフのキー
+G = st.session_state.get('him_graph')
 
-if graph_key not in st.session_state or st.session_state[graph_key] is None:
-    st.warning("最初に「グラフ可視化」タブでグラフを生成してください。")
+if G is None:
+    st.info("サイドバーから分析対象のグラフを読み込んでください。")
     st.stop()
 
-G = st.session_state[graph_key]
-num_graph_nodes = G.number_of_nodes()
+st.header(f"対象グラフ: `{st.session_state.him_graph_name}`")
+st.metric("ノード数", G.number_of_nodes())
+st.markdown("---")
 
-if num_graph_nodes == 0:
-    st.warning("グラフにノードがありません。「グラフ可視化」タブで再生成してください。")
-    st.stop()
-
-# --- サイドバー設定 ---
-st.sidebar.header("HIM シミュレーション設定")
-max_seeds = num_graph_nodes
-num_seeds = st.sidebar.slider("シード数 (k)", 1, max_seeds, min(10, max_seeds), key="him_num_seeds")
-propagation_prob_sim = st.sidebar.slider("伝播確率 (p) for Simulation", 0.01, 1.0, 0.1, 0.01, key="him_prop_prob")
-
+# --- シミュレーション設定（グラフ読み込み後に表示） ---
 st.sidebar.markdown("---")
-st.sidebar.caption("HIMモデル学習設定")
-him_dim = st.sidebar.slider("埋め込み次元 (dim)", 8, 64, 32, step=8, key="him_dim_param")
-him_epochs = st.sidebar.slider("学習エポック数", 1, 500, 10, key="him_epochs_param") # Streamlit上では軽めに
+st.sidebar.header("Step 2: HIM & シミュレーション設定")
+
+max_seeds = G.number_of_nodes()
+num_seeds = st.sidebar.slider("シード数 (k)", 1, max_seeds, min(10, max_seeds), key="him_num_seeds")
+
+st.sidebar.subheader("HIMモデル学習設定")
+him_dim = st.sidebar.slider("埋め込み次元 (dim)", 8, 128, 32, step=8, key="him_dim_param")
+him_epochs = st.sidebar.slider("学習エポック数", 1, 500, 10, key="him_epochs_param")
 him_beta = st.sidebar.slider("Adaptive Sliding Window Beta", 0.1, 5.0, 1.0, step=0.1, key="him_beta_param")
-# 伝播インスタンスを簡易生成するかどうかのオプション
-generate_dummy_props = st.sidebar.checkbox("簡易伝播インスタンスを学習に使用する", value=False, key="him_gen_props")
+
+generate_dummy_props = st.sidebar.checkbox("簡易伝播インスタンスを学習に使用する", value=True, key="him_gen_props")
 num_dummy_prop_instances = 0
 if generate_dummy_props:
-    num_dummy_prop_instances = st.sidebar.slider("簡易伝播インスタンス数", 1, 20, 5, key="him_num_dummy_props")
+    num_dummy_prop_instances = st.sidebar.slider("簡易伝播インスタンス数", 1, 100, 10, key="him_num_dummy_props")
 
 
-run_simulation_button = st.sidebar.button("HIMモデル学習 & シミュレーション実行", key="him_run_sim_button_actual")
+if st.sidebar.button("HIMモデル学習 & シミュレーション実行", key="him_run_sim_button"):
+    st.session_state.him_simulation_results = None
 
-# --- メイン処理 ---
-if run_simulation_button:
-    # セッションステートの初期化
-    for key in ['him_seeds_selected', 'him_simulation_log', 'him_final_activated_nodes', 'him_stepwise_cumulative_nodes', 'him_model_trained', 'him_embeddings']:
-        if key in st.session_state:
-            del st.session_state[key]
-
-    st.subheader("HIMモデル学習 & シード選択")
-    
     # 1. (オプション) 簡易伝播インスタンスの生成
-    propagations_for_training = []
+    propagations = []
     if generate_dummy_props and num_dummy_prop_instances > 0:
         with st.spinner(f"{num_dummy_prop_instances}件の簡易伝播インスタンスを生成中..."):
-            # generate_propagations に渡すseed_countはグラフノード数より小さくする必要がある
-            prop_seed_count = min(5, num_graph_nodes // 10, num_seeds) # 適当な値
-            if prop_seed_count < 1 and num_graph_nodes > 0 : prop_seed_count = 1
-
-            if num_graph_nodes > 0 and prop_seed_count > 0 :
-                 propagations_for_training = generate_propagations(
-                     G,
-                     seed_count=prop_seed_count,
-                     num_instances=num_dummy_prop_instances,
-                     ic_prob=0.05 # 固定の確率で簡易生成
-                 )
-                 st.write(f"{len(propagations_for_training)}件の伝播インスタンスを生成しました。")
-            else:
-                 st.write("ノード数が少ないため、伝播インスタンスは生成しませんでした。")
-
+            prop_seed_count = max(1, min(5, G.number_of_nodes() // 10))
+            propagations = generate_propagations(G, seed_count=prop_seed_count, num_instances=num_dummy_prop_instances)
+            st.write(f"{len(propagations)}件の伝播インスタンスを学習に使用します。")
 
     # 2. HIMモデルの学習
-    seeds = None # シード変数を初期化
-    if num_graph_nodes > 0 : # ノードが存在する場合のみ学習・シード選択
-        with st.spinner(f"HIMモデルを学習中 (dim={him_dim}, epochs={him_epochs})... これは時間がかかる場合があります。"):
-            try:
-                model = HIMModel(num_nodes=num_graph_nodes, dim=him_dim)
-                model.fit(G, propagations_for_training, epochs=him_epochs, verbose=False) # verbose=False でStreamlitの出力を簡潔に
-                st.session_state['him_model_trained'] = True # モデル学習完了フラグ
-                st.session_state['him_embeddings'] = model.embeddings.detach().cpu() # CPUに移動して保存
-                st.success("HIMモデルの学習が完了しました。")
-            except Exception as e:
-                st.error(f"HIMモデルの学習中にエラーが発生しました: {e}")
-                st.session_state['him_model_trained'] = False
+    seeds = None
+    with st.spinner(f"HIMモデルを学習中 (dim={him_dim}, epochs={him_epochs})..."):
+        try:
+            model = HIMModel(num_nodes=G.number_of_nodes(), dim=him_dim)
+            model.fit(G, propagations, epochs=him_epochs, verbose=False)
+            embeddings = model.embeddings.detach().cpu()
+            st.success("HIMモデルの学習が完了しました。")
 
-        # 3. Adaptive Sliding Windowによるシード選択
-        if st.session_state.get('him_model_trained'):
+            # 3. シード選択
             with st.spinner("学習済み埋め込みを使用してシードを選択中..."):
-                try:
-                    emb = st.session_state['him_embeddings']
-                    # adaptive_sliding_windowの引数を確認し、正しく渡す
-                    # G, emb, k, beta が主要な引数と仮定
-                    seeds = adaptive_sliding_window(G, emb, k=num_seeds, beta=him_beta)
-                    st.success("シード選択が完了しました。")
-                except Exception as e:
-                    st.error(f"シード選択中にエラーが発生しました: {e}")
-                    seeds = None # エラー時はシードをNoneに
-        else:
-            st.warning("HIMモデルの学習に失敗したため、シード選択を実行できません。")
-            seeds = None
-    else: # グラフにノードがない場合
-        st.error("グラフにノードがないため、HIMモデルの処理を実行できません。")
-        seeds = None
+                seeds = adaptive_sliding_window(G, embeddings, k=num_seeds, beta=him_beta)
+                st.success("シード選択が完了しました。")
 
+        except Exception as e:
+            st.error(f"HIMモデルの処理中にエラーが発生しました: {e}")
 
+    # 4. 伝播シミュレーション
     if seeds:
-        st.write(f"選択されたシードノード ({len(seeds)}個): {sorted(seeds)}")
-        st.session_state['him_seeds_selected'] = seeds
-
-        st.subheader("影響伝播シミュレーション結果 (HIM)")
+        st.toast(f"HIMにより {len(seeds)}個のシードを選択しました。")
         with st.spinner("伝播シミュレーションを実行中..."):
-            final_activated_nodes, raw_log = simulate_ic(G, seeds, propagation_prob_sim)
+            final_activated_nodes, raw_log = simulate_ic(G.copy(), seeds)
         
-        st.session_state['him_simulation_log'] = raw_log
-        st.session_state['him_final_activated_nodes'] = final_activated_nodes
-        st.success(f"シミュレーション完了。最終活性化ノード数: {len(final_activated_nodes)}")
-
         stepwise_cumulative = {0: set(seeds)}
-        current_cumulative = set(seeds)
         if raw_log:
             df_log = pd.DataFrame(raw_log)
-            max_step_calc = int(df_log['step'].max()) if not df_log.empty else 0
-            for step in range(1, max_step_calc + 1):
+            max_step = int(df_log['step'].max()) if not df_log.empty else 0
+            current_cumulative = set(seeds)
+            for step in range(1, max_step + 1):
                 newly_activated = set(df_log[df_log['step'] == step]['target'].unique())
                 current_cumulative.update(newly_activated)
                 stepwise_cumulative[step] = current_cumulative.copy()
-        st.session_state['him_stepwise_cumulative_nodes'] = stepwise_cumulative
-    elif run_simulation_button: # ボタンは押されたがシードが選択できなかった場合
-        st.error("HIMによるシード選択に失敗しました。シミュレーションを実行できません。")
-
-
-# --- 結果表示 (前回のコードと同様のロジック、キー名は him_ で統一) ---
-if st.session_state.get('him_seeds_selected'):
-    st.markdown("---")
-    st.header("HIM シミュレーション結果表示")
-    st.write(f"選択されたシード (HIM): {sorted(st.session_state['him_seeds_selected'])}")
-
-    raw_log_df_display = pd.DataFrame(st.session_state.get('him_simulation_log', []))
-    initial_seeds_display = st.session_state.get('him_seeds_selected', []) # シミュレーションに使ったシード
-
-    if not raw_log_df_display.empty or initial_seeds_display:
-        st.write("ステップごとに新たに活性化されたノード:")
-        # (以前のコードから流用した新規活性化ノード表示ロジック)
-        stepwise_newly_activated_display = {0: sorted(list(set(initial_seeds_display)))}
-        all_nodes_activated_so_far = set(initial_seeds_display)
-        max_step_disp = 0
-        if not raw_log_df_display.empty:
-            max_step_disp = int(raw_log_df_display['step'].max())
-        for step_num in range(1, max_step_disp + 1):
-            nodes_in_log_this_step = set(raw_log_df_display[raw_log_df_display['step'] == step_num]['target'].unique())
-            truly_new_this_step = nodes_in_log_this_step - all_nodes_activated_so_far
-            if truly_new_this_step:
-                stepwise_newly_activated_display[step_num] = sorted(list(truly_new_this_step))
-            all_nodes_activated_so_far.update(nodes_in_log_this_step)
         
-        max_len_disp = 0
-        if stepwise_newly_activated_display:
-            valid_lists_disp = [nodes for nodes in stepwise_newly_activated_display.values() if isinstance(nodes, list) and nodes]
-            if valid_lists_disp: max_len_disp = max(len(nodes) for nodes in valid_lists_disp)
-        
-        display_data_df_disp = {}
-        for step, nodes in stepwise_newly_activated_display.items():
-            if isinstance(nodes, list) and nodes: # ノードリストが空でない場合のみ
-                 padded_nodes = nodes + [pd.NA] * (max_len_disp - len(nodes))
-                 display_data_df_disp[f"Step {step}"] = padded_nodes
-        
-        if display_data_df_disp:
-            st.dataframe(pd.DataFrame(display_data_df_disp).astype(str).replace('<NA>', ''), height=200, use_container_width=True)
-        elif initial_seeds_display: # 初期シードのみの場合
-             st.dataframe(pd.DataFrame({ "Step 0": sorted(list(initial_seeds_display))}).astype(str), height=200, use_container_width=True)
+        st.session_state.him_simulation_results = {
+            "seeds": seeds,
+            "log": raw_log,
+            "final_activated": final_activated_nodes,
+            "cumulative": stepwise_cumulative
+        }
+        st.rerun()
+    elif st.session_state.get('him_run_sim_button'):
+        st.error("HIMによるシード選択に失敗したため、シミュレーションを実行できません。")
 
 
-        st.write(f"最終活性化ノード数: {len(st.session_state.get('him_final_activated_nodes', []))}")
+# --- 結果表示 ---
+if st.session_state.get('him_simulation_results'):
+    results = st.session_state.him_simulation_results
+    st.header("シミュレーション結果 (HIM)")
+    
+    res_cols = st.columns(2)
+    res_cols[0].metric("選択されたシード数", len(results['seeds']))
+    res_cols[1].metric("最終的な活性化ノード数", len(results['final_activated']))
+    st.info(f"選択されたシード (HIM): `{sorted(list(results['seeds']))}`")
 
-        st.subheader("ステップごとのグラフ状態可視化 (HIM)")
-        stepwise_cumulative_map_disp = st.session_state.get('him_stepwise_cumulative_nodes', {})
-        if stepwise_cumulative_map_disp:
-            max_slider_step_disp = max(stepwise_cumulative_map_disp.keys()) if stepwise_cumulative_map_disp else 0
-            
-            selected_step_val = 0
-            if max_slider_step_disp > 0:
-                selected_step_val = st.slider("表示ステップ選択", 0, max_slider_step_disp, max_slider_step_disp, key="him_step_slider_viz")
-            elif 0 in stepwise_cumulative_map_disp :
-                st.write("ステップ 0 (初期シード状態) のみ表示します。")
-            # else:
-            #     st.info("表示できる伝播ステップがありません。") # シミュレーション未実行時はここに到達しない想定
+    # --- ここから新規追加：ステップごとの新規活性化ノード表示 ---
+    st.subheader("ステップごとの新規活性化ノード")
+    log_df = pd.DataFrame(results['log'])
+    initial_seeds = results['seeds']
+    
+    newly_activated_per_step = {0: sorted(list(initial_seeds))}
+    all_activated_so_far = set(initial_seeds)
 
+    if not log_df.empty:
+        max_step_disp = int(log_df['step'].max())
+        for step in range(1, max_step_disp + 1):
+            targets_this_step = set(log_df[log_df['step'] == step]['target'])
+            truly_new_nodes = targets_this_step - all_activated_so_far
+            if truly_new_nodes:
+                newly_activated_per_step[step] = sorted(list(truly_new_nodes))
+            all_activated_so_far.update(targets_this_step)
 
-            nodes_active_now = stepwise_cumulative_map_disp.get(selected_step_val, set())
-            newly_active_now = set()
-            if selected_step_val > 0: # selected_step_valが定義されていれば
-                nodes_active_prev = stepwise_cumulative_map_disp.get(selected_step_val - 1, set())
-                newly_active_now = nodes_active_now - nodes_active_prev
+    # データフレーム表示用の整形
+    df_display_data = {}
+    if newly_activated_per_step:
+        max_len = max(len(nodes) for nodes in newly_activated_per_step.values() if nodes)
+        for step, nodes in newly_activated_per_step.items():
+            padded_nodes = nodes + [""] * (max_len - len(nodes))
+            df_display_data[f"Step {step}"] = padded_nodes
+    
+    if df_display_data:
+        st.dataframe(pd.DataFrame(df_display_data), use_container_width=True)
+    else:
+        st.write("新たな活性化はありませんでした。")
+    # --- ここまで新規追加 ---
 
-            nodes_v, edges_v = [], []
-            # (以前のコードから流用したノード・エッジ可視化ロジック)
-            for node_id in G.nodes():
-                color, size, shape, b_width = "#E0E0E0", 12, "dot", 0
-                if node_id in nodes_active_now:
-                    if node_id in initial_seeds_display: color, size, shape = "red", 25, "star"
-                    elif node_id in newly_active_now: color, size, b_width = "orange", 20, 2
-                    else: color, size = "#FFD700", 18
-                nodes_v.append(Node(id=str(node_id), label=str(node_id), color=color, size=size, shape=shape, borderWidth=b_width))
+    st.subheader("ステップごとのグラフ状態可視化")
+    cumulative_map = results['cumulative']
+    max_slider_step = max(cumulative_map.keys()) if cumulative_map else 0
+    
+    selected_step = 0
+    if max_slider_step > 0:
+        selected_step = st.slider("表示ステップ選択", 0, max_slider_step, max_slider_step, key="him_step_slider_viz")
+    
+    nodes_active_now = cumulative_map.get(selected_step, set())
+    
+    nodes_v, edges_v = [], []
+    for node_id in G.nodes():
+        color, size, shape = "#E0E0E0", 12, "dot"
+        if node_id in nodes_active_now:
+            if node_id in results['seeds']: color, size, shape = "red", 25, "star"
+            else: color, size = "orange", 18
+        nodes_v.append(Node(id=str(node_id), label=str(node_id), color=color, size=size, shape=shape))
 
-            for u, v_target_node in G.edges():
-                ec, ew = "#E0E0E0", 1
-                active_edge = False
-                if not raw_log_df_display.empty: # raw_log_df_display が空でないことを確認
-                     if not raw_log_df_display[(raw_log_df_display['source']==u) & (raw_log_df_display['target']==v_target_node) & (raw_log_df_display['step'] <= selected_step_val)].empty:
-                        active_edge = True
-                if active_edge and u in nodes_active_now and v_target_node in nodes_active_now: ec, ew = "blue", 2.5
-                elif u in nodes_active_now and v_target_node in nodes_active_now: ec = "#B0C4DE"
-                edges_v.append(Edge(source=str(u), target=str(v_target_node), color=ec, width=ew))
-            
-            config_viz = Config(width="100%", height=700, directed=G.is_directed(), physics=False,
-                                nodes={'font': {'size': 10}}, edges={'smooth': {'type': 'continuous'}})
-            if nodes_v:
-                st.write(f"**ステップ {selected_step_val} の状態 (HIM):**")
-                agraph(nodes=nodes_v, edges=edges_v, config=config_viz)
-        # else: # stepwise_cumulative_map_disp が空の場合
-        #     st.info("シミュレーションデータがありません。") # シミュレーション未実行時はここに到達しない想定
-
-elif run_simulation_button: # ボタンは押されたがシードが選択/保存されなかった場合
-    st.error("HIMによるシミュレーションの実行に失敗しました。")
+    for u, v, data in G.edges(data=True):
+        ec, ew = "#E0E0E0", 1
+        is_used = not log_df[(log_df['source']==u) & (log_df['target']==v) & (log_df['step'] <= selected_step)].empty
+        if is_used: ec, ew = "blue", 2.5
+        elif u in nodes_active_now and v in nodes_active_now: ec = "#B0C4DE"
+        edges_v.append(Edge(source=str(u), target=str(v), color=ec, width=ew, label=f"{data.get('weight',0):.2f}"))
+    
+    config_viz = Config(width="100%", height=700, directed=G.is_directed(), physics=True)
+    st.write(f"**ステップ {selected_step} の状態:**")
+    st.caption("ノード色 - 赤(星): 初期シード, オレンジ: 活性化済み, グレー: 未活性 | エッジ色 - 青: 伝播成功, 水色: 両端活性(非伝播)")
+    agraph(nodes=nodes_v, edges=edges_v, config=config_viz)
