@@ -1,0 +1,145 @@
+{
+    "directed": true,
+    "multigraph": false,
+    "graph": {},
+    "nodes": [
+        {
+            "id": 0
+        },
+        {
+            "id": 1
+        },
+        {
+            "id": 2
+        },
+        {
+            "id": 3
+        },
+        {
+            "id": 4
+        },
+        {
+            "id": 5
+        },
+        {
+            "id": 6
+        },
+        {
+            "id": 7
+        },
+        {
+            "id": 8
+        },
+        {
+            "id": 9
+        },
+        {
+            "id": 10
+        },
+        {
+            "id": 11
+        }
+    ],
+    "links": [
+        {
+            "weight": 0.26944942042440345,
+            "source": 0,
+            "target": 5
+        },
+        {
+            "weight": 0.18993308384398383,
+            "source": 1,
+            "target": 2
+        },
+        {
+            "weight": 0.34335245215760224,
+            "source": 1,
+            "target": 3
+        },
+        {
+            "weight": 0.34494143921304266,
+            "source": 1,
+            "target": 4
+        },
+        {
+            "weight": 0.2592109511196446,
+            "source": 2,
+            "target": 1
+        },
+        {
+            "weight": 0.19828429792799315,
+            "source": 2,
+            "target": 6
+        },
+        {
+            "weight": 0.45907470043298615,
+            "source": 3,
+            "target": 7
+        },
+        {
+            "weight": 0.44727381628184426,
+            "source": 3,
+            "target": 8
+        },
+        {
+            "weight": 0.44737387610424384,
+            "source": 3,
+            "target": 11
+        },
+        {
+            "weight": 0.23848474797705121,
+            "source": 4,
+            "target": 1
+        },
+        {
+            "weight": 0.1720254613517246,
+            "source": 4,
+            "target": 2
+        },
+        {
+            "weight": 0.39130557114841097,
+            "source": 4,
+            "target": 9
+        },
+        {
+            "weight": 0.26485778089817485,
+            "source": 4,
+            "target": 11
+        },
+        {
+            "weight": 0.31653905457565507,
+            "source": 6,
+            "target": 1
+        },
+        {
+            "weight": 0.3311708333691641,
+            "source": 6,
+            "target": 4
+        },
+        {
+            "weight": 0.24583040598259082,
+            "source": 8,
+            "target": 6
+        },
+        {
+            "weight": 0.3550442387596976,
+            "source": 9,
+            "target": 2
+        },
+        {
+            "weight": 0.2869115928936109,
+            "source": 10,
+            "target": 6
+        },
+        {
+            "weight": 0.3177847777153924,
+            "source": 11,
+            "target": 2
+        },
+        {
+            "weight": 0.38305601286465774,
+            "source": 11,
+            "target": 5
+        }
+    ]
+}

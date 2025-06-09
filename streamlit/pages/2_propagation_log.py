@@ -1,260 +1,237 @@
-"""
-2_propagation_log.py
-
-Streamlit page for displaying propagation logs and visualizing propagation steps.
-Located in streamlit/pages/
-"""
 import streamlit as st
 import pandas as pd
 import random
 import sys
 import os
-import networkx as nx # NetworkXをインポート
-from streamlit_agraph import agraph, Node, Edge, Config # agraph関連をインポート
+import networkx as nx
+from streamlit_agraph import agraph, Node, Edge, Config
+import json
+from datetime import datetime
 
-# 'datagen'フォルダへのパスを追加
-current_dir = os.path.dirname(__file__)
-streamlit_dir = os.path.abspath(os.path.join(current_dir, '..'))
-project_root_dir = os.path.abspath(os.path.join(streamlit_dir, '..'))
-sys.path.append(project_root_dir)
+# --- パス設定とモジュールのインポート ---
+# このスクリプト(2_propagation_log.py)の場所を基準にプロジェクトルートを特定
+# .../streamlit/pages/ -> .../streamlit/ -> .../ (Project Root)
+try:
+    current_file_dir = os.path.dirname(os.path.abspath(__file__))
+    streamlit_app_dir = os.path.abspath(os.path.join(current_file_dir, '..'))
+    project_root = os.path.abspath(os.path.join(streamlit_app_dir, '..'))
+    
+    if project_root not in sys.path:
+        sys.path.append(project_root)
+    
+    from datagen.data_utils import simulate_ic
 
-from datagen.data_utils import simulate_ic
-
-st.set_page_config(layout="wide", page_title="伝播ログと可視化")
-st.title("影響伝播ログとステップごとの可視化")
-
-graph_key = 'gv_graph' # グラフ可視化ページで設定されたグラフのキー
-
-if graph_key not in st.session_state or st.session_state[graph_key] is None:
-    st.warning("先に「グラフ可視化」タブでグラフを生成してください。")
+except (ImportError, ModuleNotFoundError):
+    st.error("エラー: `datagen.data_utils` モジュールが見つかりません。")
+    st.info(f"プロジェクトルートを `{project_root}` に設定しようとしましたが、失敗しました。ディレクトリ構造を確認してください。")
     st.stop()
 
-G = st.session_state[graph_key]
 
-st.sidebar.header("伝播シミュレーション設定")
+# --- 定数とディレクトリ設定 (重要：パスを修正) ---
+# このスクリプトと同じ階層にある`saved_graphs`を保存場所とする
+SAVE_DIR_NAME = "saved_graphs"
+SAVE_DIR_PATH = os.path.join(current_file_dir, SAVE_DIR_NAME) 
 
-if G.number_of_nodes() == 0:
-    st.sidebar.warning("グラフにノードがありません。「グラフ可視化」タブで生成してください。")
+if not os.path.exists(SAVE_DIR_PATH):
+    st.error(f"保存ディレクトリが見つかりません: {SAVE_DIR_PATH}")
+    st.info("`1_graph_visualization.py` などのページでグラフを保存すると、自動的に作成されます。")
     st.stop()
 
-# シードノードのデフォルト値を設定し、セッションステートで管理
-if 'pl_seed_nodes_str' not in st.session_state:
-    default_seeds_list = []
-    if G.number_of_nodes() > 0: # ノードが存在する場合のみサンプル
-        default_seeds_list = random.sample(list(G.nodes()), min(3, G.number_of_nodes()))
-    st.session_state['pl_seed_nodes_str'] = ", ".join(map(str, default_seeds_list))
 
+# --- ヘルパー関数 ---
+# --- ヘルパー関数 (修正版) ---
 
-seed_nodes_str = st.sidebar.text_input(
-    "シードノード (カンマ区切り)",
-    value=st.session_state['pl_seed_nodes_str'],
-    key="pl_seed_input"
-)
-st.session_state['pl_seed_nodes_str'] = seed_nodes_str
-
-valid_seed_nodes = []
-if seed_nodes_str.strip(): # 入力がある場合のみ処理
+def load_graph_from_json(folder_name):
+    """フォルダ名を受け取り、その中のgraph_data.jsonを読み込みます。"""
+    filepath = os.path.join(SAVE_DIR_PATH, folder_name, 'graph_data.json')
     try:
-        seed_nodes_input_list = [int(s.strip()) for s in seed_nodes_str.split(',') if s.strip()]
-        valid_seed_nodes = [s for s in seed_nodes_input_list if s in G.nodes()]
-
-        if not valid_seed_nodes and seed_nodes_input_list: # 入力はあったが有効なシードがなかった
-             st.sidebar.error("入力されたシードノードはグラフ内に存在しません。")
-             # st.stop() # ボタンが押されるまでは停止しない方が使いやすい場合もある
-        elif not valid_seed_nodes: # 有効なシードがない (入力が空だった場合も含む)
-             st.sidebar.warning("有効なシードノードが選択/入力されていません。")
-
-    except ValueError:
-        st.sidebar.error("シードノードはカンマ区切りの数値で入力してください。")
-        st.stop()
-else: # 入力が空の場合
-    st.sidebar.warning("シードノードが入力されていません。")
-
-
-propagation_prob = st.sidebar.slider("伝播確率 (p)", 0.01, 1.0, 0.1, 0.01, key="pl_prob")
-
-if st.sidebar.button("伝播シミュレーション実行", key="pl_run_sim_button"):
-    if not valid_seed_nodes:
-        st.sidebar.warning("有効なシードノードがありません。再度確認してください。")
-    else:
-        activated_n_set, prop_log_list = simulate_ic(G, valid_seed_nodes, propagation_prob)
-        st.session_state['pl_activated_nodes_final'] = activated_n_set
-        st.session_state['pl_propagation_log_raw'] = prop_log_list # 元のログも保存
-        st.session_state['pl_sim_seeds'] = valid_seed_nodes # シミュレーション時のシードも保存
-        st.sidebar.success(f"{len(st.session_state['pl_activated_nodes_final'])} ノードが最終的に活性化しました。")
-
-        # ステップごとの「そのステップ終了時点での」全活性化ノードリストを作成
-        stepwise_cumulative_activated_nodes = {0: set(valid_seed_nodes)} # ステップ0は初期シード
-        current_cumulative_activated = set(valid_seed_nodes)
-        if prop_log_list: # ログがある場合のみ処理
-            log_df_for_steps = pd.DataFrame(prop_log_list)
-            max_step_calc = int(log_df_for_steps['step'].max()) if not log_df_for_steps.empty else 0
-
-            for step in range(1, max_step_calc + 1):
-                newly_activated_this_step = set(log_df_for_steps[log_df_for_steps['step'] == step]['target'].unique())
-                current_cumulative_activated.update(newly_activated_this_step)
-                stepwise_cumulative_activated_nodes[step] = current_cumulative_activated.copy()
-        st.session_state['pl_stepwise_cumulative_activated_nodes'] = stepwise_cumulative_activated_nodes
-
-
-# --- ログと可視化の表示 ---
-if 'pl_propagation_log_raw' in st.session_state:
-    st.subheader("影響伝播ログ")
-    raw_log_df = pd.DataFrame(st.session_state.get('pl_propagation_log_raw', []))
-    initial_seeds_for_log = st.session_state.get('pl_sim_seeds', [])
-
-
-    if not raw_log_df.empty or initial_seeds_for_log: # 初期シードだけでも表示
-        # ステップごとにどのノードが「新たに」活性化されたかを表示
-        st.write("ステップごとに新たに活性化されたノード:")
-        stepwise_newly_activated_display = {}
-        # ステップ0 (初期シード)
-        stepwise_newly_activated_display[0] = sorted(list(set(initial_seeds_for_log))) # 初期シードをセットとして扱う
-        all_nodes_activated_so_far = set(initial_seeds_for_log) # これまでに活性化した全ノード
-
-        max_step_display = 0
-        if not raw_log_df.empty:
-            max_step_display = int(raw_log_df['step'].max())
-
-        for step_num in range(1, max_step_display + 1):
-            nodes_in_log_this_step = set(raw_log_df[raw_log_df['step'] == step_num]['target'].unique())
-            truly_new_this_step = nodes_in_log_this_step - all_nodes_activated_so_far
-            if truly_new_this_step:
-                stepwise_newly_activated_display[step_num] = sorted(list(truly_new_this_step))
-            all_nodes_activated_so_far.update(nodes_in_log_this_step)
-
-        # データフレームで見やすく表示
-        max_len_nodes = 0
-        if stepwise_newly_activated_display:
-            max_len_nodes = max(len(nodes) for nodes in stepwise_newly_activated_display.values() if nodes) # 空リストを除外
-
-        display_data_for_df = {}
-        for step, nodes in stepwise_newly_activated_display.items():
-            if nodes: # ノードリストが空でない場合のみ
-                 padded_nodes = nodes + [""] * (max_len_nodes - len(nodes)) # "" でパディング
-                 display_data_for_df[f"Step {step}"] = padded_nodes
-            # else: # 新規活性化がなかったステップは表示しないか、"-" などで埋めるか
-            #     display_data_for_df[f"Step {step}"] = ["-"] * max_len_nodes
-
-
-        if display_data_for_df:
-            newly_activated_df = pd.DataFrame(display_data_for_df)
-            st.dataframe(newly_activated_df, height=200, use_container_width=True)
-        elif initial_seeds_for_log : # 初期シードのみで伝播なしの場合
-            st.write(pd.DataFrame({ "Step 0": sorted(list(initial_seeds_for_log))}))
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+        # グラフデータに 'metadata' が含まれている可能性があるため、'links'や'nodes'キーがあるか確認
+        if 'nodes' in data and 'links' in data:
+            return nx.node_link_graph(data)
         else:
-            st.write("ログデータがありません。")
+            st.error(f"エラー: {folder_name} のJSONファイルは有効なグラフデータ形式ではありません。")
+            return None
+    except FileNotFoundError:
+        st.error(f"エラー: {filepath} が見つかりません。")
+        return None
+    except Exception as e:
+        st.error(f"グラフ読込エラー: {e}")
+        return None
 
+def get_saved_graph_files():
+    """保存されているグラフの「フォルダ」リストを取得します。"""
+    if not os.path.exists(SAVE_DIR_PATH): return []
+    
+    # saved_graphs内の各項目が「フォルダ」であるかを確認してリスト化する
+    return sorted([
+        d for d in os.listdir(SAVE_DIR_PATH)
+        if os.path.isdir(os.path.join(SAVE_DIR_PATH, d))
+    ], reverse=True)
 
-        st.write(f"最終的に活性化したノード ({len(st.session_state.get('pl_activated_nodes_final', []))}個):")
-        st.write(sorted(list(st.session_state.get('pl_activated_nodes_final', []))))
+# --- セッションステートの初期化 (ページ固有キーを使用) ---
+if 'prop_log_graph' not in st.session_state:
+    st.session_state.prop_log_graph = None
+if 'prop_log_seed_nodes_str' not in st.session_state:
+    st.session_state.prop_log_seed_nodes_str = ""
+if 'prop_log_simulation_results' not in st.session_state:
+    st.session_state.prop_log_simulation_results = None
 
-        # --- ステップごとのグラフ可視化 ---
-        st.subheader("ステップごとのグラフ状態可視化")
-        stepwise_cumulative_map = st.session_state.get('pl_stepwise_cumulative_activated_nodes', {})
-        initial_seeds_for_log = st.session_state.get('pl_sim_seeds', []) # initial_seeds_for_log をここで取得
+# --- サイドバー ---
+st.sidebar.header("伝播ログ分析")
 
-        if stepwise_cumulative_map: # ステップごとの累積活性化ノード情報があるか
-            max_slider_step = max(stepwise_cumulative_map.keys()) if stepwise_cumulative_map else 0
+# 1. 保存済みグラフ読み込み
+st.sidebar.subheader("1. グラフを選択")
+st.sidebar.caption(f"グラフ保存場所: `pages/saved_graphs`")
 
-            if max_slider_step > 0: # max_slider_stepが0より大きい場合のみスライダーを表示
-                selected_step_slider = st.slider(
-                    "表示するステップを選択:",
-                    min_value=0, # ステップ0 (初期シード) から
-                    max_value=max_slider_step,
-                    value=max_slider_step, # デフォルトは最終ステップ
-                    key="pl_step_slider_main"
-                )
-            elif max_slider_step == 0 and 0 in stepwise_cumulative_map: # ステップ0のみ存在する場合
-                st.write("ステップ 0 (初期シード状態) のみ表示します。伝播はありませんでした。")
-                selected_step_slider = 0 # 表示ステップを0に固定
-            else: # stepwise_cumulative_mapが空など、予期せぬ場合
-                st.info("表示できる伝播ステップがありません。")
-                st.stop() # これ以上処理を進めない
+saved_graph_files = get_saved_graph_files()
 
-            # 選択されたステップまでの全活性化ノード
-            nodes_active_at_selected_step = stepwise_cumulative_map.get(selected_step_slider, set())
-            # 選択されたステップで「新たに」活性化されたノード
-            newly_activated_at_selected_step = set()
-            if selected_step_slider > 0: # selected_step_sliderが定義されている場合のみ
-                nodes_active_at_prev_step = stepwise_cumulative_map.get(selected_step_slider - 1, set())
-                newly_activated_at_selected_step = nodes_active_at_selected_step - nodes_active_at_prev_step
-
-
-            nodes_vis_list = []
-            # initial_seeds_for_log が未定義の場合のフォールバック
-            current_initial_seeds = initial_seeds_for_log if initial_seeds_for_log is not None else set()
-
-            for node_id in G.nodes():
-                color = "#E0E0E0" # 非活性 (薄いグレー)
-                size = 12
-                shape = "dot"
-                border_width = 0
-                # border_color = "black" # デフォルト (未使用なのでコメントアウト)
-
-                if node_id in nodes_active_at_selected_step:
-                    if node_id in current_initial_seeds: # current_initial_seeds を使用
-                        color = "red" # 初期シード
-                        size = 25
-                        shape = "star"
-                    elif node_id in newly_activated_at_selected_step:
-                        color = "orange" # このステップで新規活性化
-                        size = 20
-                        border_width = 2 # 新規活性を強調
-                        # border_color = "black" # (未使用なのでコメントアウト)
-                    else:
-                        color = "#FFD700" # 既に活性化済み (Goldなど、オレンジより明るい色)
-                        size = 18
-                nodes_vis_list.append(Node(id=str(node_id), label=str(node_id), color=color, size=size, shape=shape,
-                                       borderWidth=border_width, borderWidthSelected=border_width+1,
-                                       labelHighlightBold=True,
-                                       font={'color': 'black', 'size': 10 if size <15 else 12}))
-
-            edges_vis_list = []
-            # エッジの色分け
-            # raw_log_df が未定義の場合のフォールバック
-            current_raw_log_df = raw_log_df if 'raw_log_df' in locals() and raw_log_df is not None else pd.DataFrame()
-
-            for u, v in G.edges():
-                edge_color = "#E0E0E0" # デフォルト (非活性エッジ)
-                edge_width = 1
-                is_active_edge_in_log = False
-                if not current_raw_log_df.empty: # current_raw_log_df を使用
-                    if not current_raw_log_df[(current_raw_log_df['source']==u) & (current_raw_log_df['target']==v) & (current_raw_log_df['step'] <= selected_step_slider)].empty:
-                        is_active_edge_in_log = True
-
-                if is_active_edge_in_log and u in nodes_active_at_selected_step and v in nodes_active_at_selected_step:
-                    edge_color = "blue"
-                    edge_width = 2.5
-                elif u in nodes_active_at_selected_step and v in nodes_active_at_selected_step :
-                    edge_color = "#B0C4DE"
-
-                edges_vis_list.append(Edge(source=str(u), target=str(v), color=edge_color, width=edge_width, smooth=False))
-
-
-            config = Config(width="100%", height=700, directed=G.is_directed(),
-                            physics={'enabled': True, 'solver': 'forceAtlas2Based',
-                                     'forceAtlas2Based': {'gravitationalConstant': -30, 'springLength': 100}},
-                            interaction={'hover': True, 'tooltipDelay': 200},
-                            nodes={'font': {'size': 10}},
-                            edges={'smooth': {'type': 'continuous'}})
-
-
-            if nodes_vis_list:
-                st.write(f"**ステップ {selected_step_slider} の状態:** (赤: 初期シード, オレンジ (太枠): このステップで新規活性化, 金色: 既に活性化, グレー: 未活性)")
-                agraph(nodes=nodes_vis_list, edges=edges_vis_list, config=config)
-            else:
-                st.write("表示するノードがありません。")
-        else: # stepwise_cumulative_map が空の場合 (シミュレーション未実行など)
-            st.info("シミュレーションを実行すると、ステップごとの可視化が表示されます。")
-
-    # ... (以降のコードは同じ) ...
-    elif 'pl_sim_seeds' in st.session_state : # シミュレーションボタンは押したがログがない場合（伝播しなかった場合）
-        st.info("シードノードからの新たな活性化はありませんでした。")
-        st.write(f"初期シード: {sorted(list(st.session_state.get('pl_sim_seeds', [])))}")
-
-    else:
-        st.info("サイドバーで「伝播シミュレーション実行」ボタンを押してログを生成してください。")
-
+if not saved_graph_files:
+    st.sidebar.warning("保存されているグラフがありません。")
 else:
-    st.info("先に「グラフ可視化」タブでグラフを生成し、その後、このページでシミュレーションを実行してください。")
+    # `index=0`とプレースホルダーで、最初は何も選択されていない状態にする
+    selected_file_for_load = st.sidebar.selectbox(
+        "読み込むグラフファイルを選択",
+        options=saved_graph_files,
+        index=None,
+        placeholder="ファイルを選択してください",
+        key="prop_log_load_selector"
+    )
+
+    if st.sidebar.button("選択したグラフを読み込み", key="prop_log_load_btn"):
+        if selected_file_for_load:
+            # グラフを読み込み、このページ用のセッションステートに保存
+            graph = load_graph_from_json(selected_file_for_load)
+            st.session_state.prop_log_graph = graph
+            # シミュレーション関連の状態をリセット
+            st.session_state.prop_log_seed_nodes_str = ""
+            st.session_state.prop_log_simulation_results = None
+            st.toast(f"{selected_file_for_load} を読み込みました。", icon="✅")
+            st.rerun()
+        else:
+            st.sidebar.warning("読み込むファイルを選択してください。")
+
+# 2. 伝播シミュレーション設定
+st.sidebar.subheader("2. シミュレーションを実行")
+
+active_graph = st.session_state.get('prop_log_graph')
+
+# グラフが読み込まれている場合のみ、シミュレーション設定を表示
+if active_graph:
+    # シードノードの自動提案
+    if not st.session_state.prop_log_seed_nodes_str and active_graph.number_of_nodes() > 0:
+        try:
+            num_seeds = min(3, active_graph.number_of_nodes())
+            nodes = list(active_graph.nodes())
+            st.session_state.prop_log_seed_nodes_str = ", ".join(map(str, random.sample(nodes, num_seeds)))
+        except ValueError:
+            st.session_state.prop_log_seed_nodes_str = ""
+
+    seed_nodes_str_input = st.sidebar.text_input(
+        "シードノード (カンマ区切り)",
+        value=st.session_state.prop_log_seed_nodes_str,
+        key="prop_log_seed_input"
+    )
+    st.session_state.prop_log_seed_nodes_str = seed_nodes_str_input
+
+    # シードノードの検証
+    parsed_valid_seed_nodes = []
+    if seed_nodes_str_input.strip():
+        try:
+            raw_seeds = [s.strip() for s in seed_nodes_str_input.split(',') if s.strip()]
+            potential_seeds = [int(s) for s in raw_seeds]
+            parsed_valid_seed_nodes = [s for s in potential_seeds if s in active_graph.nodes()]
+            if len(raw_seeds) != len(parsed_valid_seed_nodes):
+                st.sidebar.warning("一部のシードノードはグラフ内に存在しません。")
+        except ValueError:
+            st.sidebar.error("シードノードはカンマ区切りの数値で入力してください。")
+    
+    run_sim_btn_disabled = not parsed_valid_seed_nodes
+    if st.sidebar.button("伝播シミュレーション実行", key="prop_log_run_sim_btn", disabled=run_sim_btn_disabled):
+        final_nodes, log = simulate_ic(active_graph, set(parsed_valid_seed_nodes))
+        
+        cumulative_activated = {0: set(parsed_valid_seed_nodes)}
+        current_total = set(parsed_valid_seed_nodes)
+        if log:
+            log_df = pd.DataFrame(log)
+            max_step = int(log_df['step'].max()) if not log_df.empty else 0
+            for i in range(1, max_step + 1):
+                newly_activated = set(log_df[log_df['step'] == i]['target'])
+                current_total.update(newly_activated)
+                cumulative_activated[i] = current_total.copy()
+        
+        st.session_state.prop_log_simulation_results = {
+            "seeds": set(parsed_valid_seed_nodes),
+            "log": log,
+            "final_activated": final_nodes,
+            "cumulative_activated": cumulative_activated
+        }
+        st.toast(f"最終活性化ノード数: {len(final_nodes)}", icon="🎯")
+        st.rerun()
+else:
+    st.sidebar.info("グラフを読み込むと、シミュレーション設定が表示されます。")
+
+
+# --- メインエリア ---
+st.title("影響伝播シミュレーションとログ分析")
+
+if not active_graph:
+    st.info("サイドバーから分析対象のグラフを読み込んでください。")
+    st.stop()
+
+st.header("現在のグラフ")
+main_cols = st.columns(2)
+main_cols[0].metric("ノード数", active_graph.number_of_nodes())
+main_cols[1].metric("エッジ数", active_graph.number_of_edges())
+
+# --- シミュレーション結果の表示 ---
+simulation_results = st.session_state.get('prop_log_simulation_results')
+if simulation_results:
+    st.header("影響伝播結果")
+    
+    log = simulation_results['log']
+    seeds = simulation_results['seeds']
+    final_activated = simulation_results['final_activated']
+    cumulative_map = simulation_results['cumulative_activated']
+
+    # ステップごとのスライダーと可視化
+    if cumulative_map:
+        max_step = max(cumulative_map.keys())
+        chosen_step = 0
+        if max_step > 0:
+            chosen_step = st.slider("表示するステップを選択:", 0, max_step, max_step, key="prop_log_step_slider")
+        
+        st.subheader(f"ステップ {chosen_step} の状態")
+        
+        nodes_active_at_step = cumulative_map[chosen_step]
+        
+        viz_nodes_prop = []
+        for node in active_graph.nodes():
+            color, size, shape = "#D3D3D3", 12, "dot" # Default
+            if node in nodes_active_at_step:
+                if node in seeds:
+                    color, size, shape = "red", 25, "star"
+                else:
+                    color, size = "orange", 18
+            viz_nodes_prop.append(Node(id=str(node), label=str(node), color=color, size=size, shape=shape))
+
+        viz_edges_prop = []
+        log_df = pd.DataFrame(log)
+        for u, v, data in active_graph.edges(data=True):
+            edge_color, width = "#E0E0E0", 1.0
+            is_used = not log_df[(log_df['source'] == u) & (log_df['target'] == v) & (log_df['step'] <= chosen_step)].empty
+            if is_used:
+                edge_color, width = "blue", 2.5
+            elif u in nodes_active_at_step and v not in nodes_active_at_step:
+                edge_color = "#FFC0CB" # Pink
+            
+            viz_edges_prop.append(Edge(source=str(u), target=str(v), label=f"{data.get('weight', 0):.3f}",
+                                     color=edge_color, width=width, arrows="to"))
+
+        agraph_config_prop = Config(width="100%", height=700, directed=True, physics=False)
+        st.caption("ノード色 - 赤(星): 初期シード, オレンジ: 活性化済み, グレー: 未活性")
+        st.caption("エッジ色 - 青: 伝播成功, ピンク: 伝播試行(失敗/未実行), グレー: 未試行")
+        agraph(nodes=viz_nodes_prop, edges=viz_edges_prop, config=agraph_config_prop)
+else:
+    st.info("サイドバーでシードノードを選択し、「伝播シミュレーション実行」ボタンを押してください。")
