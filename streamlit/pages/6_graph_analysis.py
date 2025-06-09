@@ -3,7 +3,7 @@ import pandas as pd
 import networkx as nx
 import json
 import matplotlib.pyplot as plt
-import japanize_matplotlib # 日本語フォントのサポート
+import japanize_matplotlib  # 日本語フォントのサポート
 import numpy as np
 import sys
 import os
@@ -13,7 +13,7 @@ from collections import Counter
 try:
     # このスクリプト(6_graph_analysis.py)の場所を基準にプロジェクトルートを特定
     current_file_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(current_file_dir, '..', '..'))
+    project_root = os.path.abspath(os.path.join(current_file_dir, "..", ".."))
     if project_root not in sys.path:
         sys.path.append(project_root)
 except (ImportError, ModuleNotFoundError) as e:
@@ -24,7 +24,7 @@ except (ImportError, ModuleNotFoundError) as e:
 try:
     import community.community_louvain as community_louvain
 except ImportError:
-    community_louvain = None # ライブラリがない場合はNoneに設定
+    community_louvain = None  # ライブラリがない場合はNoneに設定
 
 # --- 定数とディレクトリ設定 ---
 SAVE_DIR_NAME = "saved_graphs"
@@ -32,33 +32,44 @@ SAVE_DIR_NAME = "saved_graphs"
 SAVE_DIR_PATH = os.path.join(current_file_dir, SAVE_DIR_NAME)
 if not os.path.exists(SAVE_DIR_PATH):
     st.error(f"保存ディレクトリが見つかりません: {SAVE_DIR_PATH}")
-    st.info("`1_graph_visualization.py`ページでグラフを保存すると、自動的に作成されます。")
+    st.info(
+        "`1_graph_visualization.py`ページでグラフを保存すると、自動的に作成されます。"
+    )
     st.stop()
 
 
 # --- ヘルパー関数 ---
 def load_graph_from_json(folder_name):
     """フォルダ名を受け取り、その中のgraph_data.jsonを読み込みます。"""
-    filepath = os.path.join(SAVE_DIR_PATH, folder_name, 'graph_data.json')
+    filepath = os.path.join(SAVE_DIR_PATH, folder_name, "graph_data.json")
     try:
-        with open(filepath, 'r') as f:
+        with open(filepath, "r") as f:
             data = json.load(f)
         return nx.node_link_graph(data)
     except Exception as e:
         st.error(f"グラフ読込エラー: {e}")
         return None
 
+
 def get_saved_graph_files():
     """保存されているグラフの「フォルダ」リストを取得します。"""
-    if not os.path.exists(SAVE_DIR_PATH): return []
-    return sorted([d for d in os.listdir(SAVE_DIR_PATH) if os.path.isdir(os.path.join(SAVE_DIR_PATH, d))], reverse=True)
+    if not os.path.exists(SAVE_DIR_PATH):
+        return []
+    return sorted(
+        [
+            d
+            for d in os.listdir(SAVE_DIR_PATH)
+            if os.path.isdir(os.path.join(SAVE_DIR_PATH, d))
+        ],
+        reverse=True,
+    )
 
 
 # --- セッションステートの初期化 ---
 # このページ専用のキーを使用
-if 'ga_graph' not in st.session_state:
+if "ga_graph" not in st.session_state:
     st.session_state.ga_graph = None
-if 'ga_graph_name' not in st.session_state:
+if "ga_graph_name" not in st.session_state:
     st.session_state.ga_graph_name = "未選択"
 
 
@@ -71,10 +82,10 @@ if not saved_files:
     st.sidebar.error("読み込み可能なグラフがありません。")
 else:
     selected_file = st.sidebar.selectbox(
-        "グラフを選択:", 
-        [""] + saved_files, 
+        "グラフを選択:",
+        [""] + saved_files,
         format_func=lambda x: "ファイルを選択" if x == "" else x,
-        key="ga_load_selector"
+        key="ga_load_selector",
     )
     if st.sidebar.button("グラフを読み込み分析", disabled=not selected_file):
         graph = load_graph_from_json(selected_file)
@@ -87,7 +98,7 @@ else:
 # --- メインエリア ---
 st.title("📊 グラフ構造分析")
 
-G_to_analyze = st.session_state.get('ga_graph')
+G_to_analyze = st.session_state.get("ga_graph")
 
 if G_to_analyze is None:
     st.info("サイドバーから分析対象のグラフを読み込んでください。")
@@ -123,24 +134,29 @@ if num_nodes > 0:
     if is_directed:
         with cols_deg_hist[0]:
             fig_in, ax_in = plt.subplots()
-            ax_in.hist(in_degrees, bins=bin_count, color='skyblue', edgecolor='black')
+            ax_in.hist(in_degrees, bins=bin_count, color="skyblue", edgecolor="black")
             ax_in.set_title("入次数分布")
-            ax_in.set_xlabel("入次数"); ax_in.set_ylabel("ノード数")
+            ax_in.set_xlabel("入次数")
+            ax_in.set_ylabel("ノード数")
             st.pyplot(fig_in)
         with cols_deg_hist[1]:
             fig_out, ax_out = plt.subplots()
-            ax_out.hist(out_degrees, bins=bin_count, color='lightcoral', edgecolor='black')
+            ax_out.hist(
+                out_degrees, bins=bin_count, color="lightcoral", edgecolor="black"
+            )
             ax_out.set_title("出次数分布")
-            ax_out.set_xlabel("出次数"); ax_out.set_ylabel("ノード数")
+            ax_out.set_xlabel("出次数")
+            ax_out.set_ylabel("ノード数")
             st.pyplot(fig_out)
-    else: # Undirected
+    else:  # Undirected
         with cols_deg_hist[0]:
             fig, ax = plt.subplots()
-            ax.hist(degrees, bins=bin_count, color='mediumseagreen', edgecolor='black')
+            ax.hist(degrees, bins=bin_count, color="mediumseagreen", edgecolor="black")
             ax.set_title("次数分布")
-            ax.set_xlabel("次数"); ax.set_ylabel("ノード数")
+            ax.set_xlabel("次数")
+            ax.set_ylabel("ノード数")
             st.pyplot(fig)
-            
+
 st.markdown("---")
 
 # --- 2. グラフ構造の性質 ---
@@ -154,14 +170,20 @@ if num_nodes > 0:
             wccs = list(nx.weakly_connected_components(G_to_analyze))
             largest_wcc_size = len(max(wccs, key=len)) if wccs else 0
         st.write(f"- 強連結成分 (SCC) の数: {len(sccs)}")
-        st.write(f"- 最大SCCのサイズ: {largest_scc_size} ({largest_scc_size/num_nodes:.1%})")
+        st.write(
+            f"- 最大SCCのサイズ: {largest_scc_size} ({largest_scc_size/num_nodes:.1%})"
+        )
         st.write(f"- 弱連結成分 (WCC) の数: {len(wccs)}")
-        st.write(f"- 最大WCCのサイズ: {largest_wcc_size} ({largest_wcc_size/num_nodes:.1%})")
-    else: # Undirected
+        st.write(
+            f"- 最大WCCのサイズ: {largest_wcc_size} ({largest_wcc_size/num_nodes:.1%})"
+        )
+    else:  # Undirected
         ccs = list(nx.connected_components(G_to_analyze))
         largest_cc_size = len(max(ccs, key=len)) if ccs else 0
         st.write(f"- 連結成分の数: {len(ccs)}")
-        st.write(f"- 最大連結成分のサイズ: {largest_cc_size} ({largest_cc_size/num_nodes:.1%})")
+        st.write(
+            f"- 最大連結成分のサイズ: {largest_cc_size} ({largest_cc_size/num_nodes:.1%})"
+        )
 
     st.markdown("**クラスタリング係数**")
     with st.spinner("クラスタリング係数を計算中..."):
@@ -174,7 +196,11 @@ if num_nodes > 0:
     if num_nodes > 1:
         with st.spinner("平均最短経路長を計算中... (時間がかかる場合があります)"):
             try:
-                components = list(nx.weakly_connected_components(G_to_analyze) if is_directed else nx.connected_components(G_to_analyze))
+                components = list(
+                    nx.weakly_connected_components(G_to_analyze)
+                    if is_directed
+                    else nx.connected_components(G_to_analyze)
+                )
                 if components:
                     largest_comp_nodes = max(components, key=len)
                     if len(largest_comp_nodes) > 1:
@@ -201,7 +227,9 @@ if num_nodes > 0:
                 st.warning(f"- コミュニティ検出中にエラー: {e}")
     else:
         st.markdown("**コミュニティ構造 (Louvain法)**")
-        st.info("`python-louvain`がインストールされていないため、スキップします。(`pip install python-louvain`でインストールできます)")
+        st.info(
+            "`python-louvain`がインストールされていないため、スキップします。(`pip install python-louvain`でインストールできます)"
+        )
 
 
 st.markdown("---")
@@ -213,34 +241,36 @@ if num_nodes > 0:
         k_top = 5
         centrality_calculators = {}
         if is_directed:
-            centrality_calculators['入次数中心性'] = nx.in_degree_centrality
-            centrality_calculators['出次数中心性'] = nx.out_degree_centrality
+            centrality_calculators["入次数中心性"] = nx.in_degree_centrality
+            centrality_calculators["出次数中心性"] = nx.out_degree_centrality
         else:
-            centrality_calculators['次数中心性'] = nx.degree_centrality
-        
-        centrality_calculators['PageRank'] = nx.pagerank
-        centrality_calculators['媒介中心性'] = nx.betweenness_centrality
-        centrality_calculators['近接中心性'] = nx.closeness_centrality
+            centrality_calculators["次数中心性"] = nx.degree_centrality
+
+        centrality_calculators["PageRank"] = nx.pagerank
+        centrality_calculators["媒介中心性"] = nx.betweenness_centrality
+        centrality_calculators["近接中心性"] = nx.closeness_centrality
 
         results_data = []
         for name, func in centrality_calculators.items():
             try:
                 centrality_dict = func(G_to_analyze)
-                top_nodes = sorted(centrality_dict.items(), key=lambda x: x[1], reverse=True)[:k_top]
-                row = {'Centrality': name}
+                top_nodes = sorted(
+                    centrality_dict.items(), key=lambda x: x[1], reverse=True
+                )[:k_top]
+                row = {"Centrality": name}
                 for i, (node, score) in enumerate(top_nodes, 1):
-                    row[f'Top {i} Node'] = node
-                    row[f'Top {i} Score'] = f"{score:.4f}"
+                    row[f"Top {i} Node"] = node
+                    row[f"Top {i} Score"] = f"{score:.4f}"
                 results_data.append(row)
             except Exception as e:
                 st.warning(f"{name}の計算中にエラー: {e}")
 
     if results_data:
-        results_df = pd.DataFrame(results_data).set_index('Centrality')
+        results_df = pd.DataFrame(results_data).set_index("Centrality")
         st.dataframe(results_df)
 else:
     st.write("ノードがないため、中心性を計算できません。")
-    
+
 st.markdown("---")
 
 # --- 4. その他の性質 ---
@@ -252,9 +282,13 @@ if num_nodes > 1:
             assortativity = nx.degree_assortativity_coefficient(G_to_analyze)
             st.write(f"- 次数相関 (ピアソン相関係数): {assortativity:.4f}")
             if assortativity > 0.1:
-                st.info("💡 **同類選択的 (Assortative):** 次数の高いノード同士が接続しやすい傾向があります。")
+                st.info(
+                    "💡 **同類選択的 (Assortative):** 次数の高いノード同士が接続しやすい傾向があります。"
+                )
             elif assortativity < -0.1:
-                st.info("💡 **異類選択的 (Disassortative):** 次数の高いノードと低いノードが接続しやすい傾向があります。")
+                st.info(
+                    "💡 **異類選択的 (Disassortative):** 次数の高いノードと低いノードが接続しやすい傾向があります。"
+                )
             else:
                 st.info("💡 **中立 (Neutral):** 次数に関する特定の相関は見られません。")
         except Exception as e:
@@ -268,10 +302,14 @@ if num_nodes > 1:
                 rc = nx.rich_club_coefficient(G_undirected, normalized=False)
                 if rc:
                     fig_rc, ax_rc = plt.subplots()
-                    ax_rc.plot(list(rc.keys()), list(rc.values()), marker='o', linestyle='-')
+                    ax_rc.plot(
+                        list(rc.keys()), list(rc.values()), marker="o", linestyle="-"
+                    )
                     ax_rc.set_xlabel("次数 k")
                     ax_rc.set_ylabel("リッチクラブ係数 φ(k)")
-                    ax_rc.set_title("リッチクラブ係数（次数k以上のノード間の密な結合度）")
+                    ax_rc.set_title(
+                        "リッチクラブ係数（次数k以上のノード間の密な結合度）"
+                    )
                     ax_rc.grid(True)
                     st.pyplot(fig_rc)
                 else:
@@ -287,15 +325,25 @@ if num_nodes > 1:
             try:
                 if num_nodes >= 3:
                     census = nx.triadic_census(G_to_analyze)
-                    df_census = pd.DataFrame(list(census.items()), columns=['Motif ID', 'Count'])
-                    df_census = df_census[df_census['Count'] > 0].sort_values(by='Count', ascending=False).reset_index(drop=True)
+                    df_census = pd.DataFrame(
+                        list(census.items()), columns=["Motif ID", "Count"]
+                    )
+                    df_census = (
+                        df_census[df_census["Count"] > 0]
+                        .sort_values(by="Count", ascending=False)
+                        .reset_index(drop=True)
+                    )
                     st.write("3ノード間の関係性の種類と数:")
                     st.dataframe(df_census)
-                    st.caption("Motif IDは3ノード間の関係パターンを示します (例: 030Tは3サイクル、102は相互リンク)。")
+                    st.caption(
+                        "Motif IDは3ノード間の関係パターンを示します (例: 030Tは3サイクル、102は相互リンク)。"
+                    )
                 else:
                     st.write("- ノード数が3未満のため計算できません。")
             except Exception as e:
                 st.warning(f"- トライアド分析の計算中にエラー: {e}")
 
 st.markdown("---")
-st.caption("注: 一部の計算、特に媒介中心性や最短経路長などは、グラフのサイズや構造によって非常に時間がかかる場合があります。")
+st.caption(
+    "注: 一部の計算、特に媒介中心性や最短経路長などは、グラフのサイズや構造によって非常に時間がかかる場合があります。"
+)

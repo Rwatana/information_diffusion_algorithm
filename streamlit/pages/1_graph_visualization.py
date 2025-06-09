@@ -15,6 +15,7 @@ if not os.path.exists(SAVE_DIR):
 
 # --- ヘルパー関数 (グラフの保存と読込) ---
 
+
 def save_graph_to_json(graph, base_name="graph_export"):
     """
     NetworkXグラフを属性付きでJSONファイルに保存します。
@@ -23,7 +24,7 @@ def save_graph_to_json(graph, base_name="graph_export"):
     if not graph:
         st.error("保存対象のグラフがありません。")
         return None
-        
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     folder_name = f"{base_name}_{timestamp}"
     full_folder_path = os.path.join(SAVE_DIR, folder_name)
@@ -31,7 +32,7 @@ def save_graph_to_json(graph, base_name="graph_export"):
 
     # nx.node_link_data を使って、グラフ構造と属性(重みなど)をまとめて辞書に変換
     graph_data = nx.node_link_data(graph)
-    
+
     file_path = os.path.join(full_folder_path, "graph_data.json")
     try:
         with open(file_path, "w") as f:
@@ -40,6 +41,7 @@ def save_graph_to_json(graph, base_name="graph_export"):
     except Exception as e:
         st.error(f"グラフの保存中にエラーが発生しました: {e}")
         return None
+
 
 def load_graph_from_json(folder_name):
     """
@@ -58,6 +60,7 @@ def load_graph_from_json(folder_name):
         st.error(f"グラフの読込中にエラーが発生しました: {e}")
         return None
 
+
 def get_saved_experiments():
     """
     保存されているグラフのフォルダリストを取得します。
@@ -66,10 +69,15 @@ def get_saved_experiments():
         return []
     # graph_data.json を含むディレクトリのみをリストアップ
     return sorted(
-        [d for d in os.listdir(SAVE_DIR) if os.path.isdir(os.path.join(SAVE_DIR, d)) and \
-         os.path.exists(os.path.join(SAVE_DIR, d, "graph_data.json"))],
-        reverse=True
+        [
+            d
+            for d in os.listdir(SAVE_DIR)
+            if os.path.isdir(os.path.join(SAVE_DIR, d))
+            and os.path.exists(os.path.join(SAVE_DIR, d, "graph_data.json"))
+        ],
+        reverse=True,
     )
+
 
 # --- Streamlit アプリケーションのUI ---
 
@@ -77,10 +85,10 @@ st.set_page_config(layout="wide", page_title="グラフ可視化 & 確率設定"
 st.title("グラフ可視化 & 伝播確率設定")
 
 # --- セッションステートの初期化 ---
-if 'graph' not in st.session_state:
-    st.session_state.graph = None # 現在のグラフオブジェクトを保持
-if 'graph_name' not in st.session_state:
-    st.session_state.graph_name = "未生成" # 表示用のグラフ名
+if "graph" not in st.session_state:
+    st.session_state.graph = None  # 現在のグラフオブジェクトを保持
+if "graph_name" not in st.session_state:
+    st.session_state.graph_name = "未生成"  # 表示用のグラフ名
 
 # --- サイドバー ---
 
@@ -101,19 +109,23 @@ if prob_min > prob_max:
     st.sidebar.error("最小確率は最大確率以下に設定してください。")
     generate_disabled = True
 
-if st.sidebar.button("新しいグラフを生成 (確率付き)", disabled=generate_disabled, key="generate_graph"):
+if st.sidebar.button(
+    "新しいグラフを生成 (確率付き)", disabled=generate_disabled, key="generate_graph"
+):
     # Erdos-Renyiモデルで基本グラフを生成
     base_graph = nx.gnp_random_graph(num_nodes, edge_density, directed=is_directed)
-    
+
     # 各エッジに指定範囲のランダムな伝播確率(weight)を割り当て
     for u, v in base_graph.edges():
-        base_graph[u][v]['weight'] = random.uniform(prob_min, prob_max)
-    
+        base_graph[u][v]["weight"] = random.uniform(prob_min, prob_max)
+
     # セッションステートに保存
     st.session_state.graph = base_graph
-    st.session_state.graph_name = f"新規生成 ({num_nodes}ノード, {base_graph.number_of_edges()}エッジ)"
+    st.session_state.graph_name = (
+        f"新規生成 ({num_nodes}ノード, {base_graph.number_of_edges()}エッジ)"
+    )
     st.sidebar.success("新しいグラフを生成しました。")
-    st.rerun() # 画面を更新して即座にグラフを表示
+    st.rerun()  # 画面を更新して即座にグラフを表示
 
 st.sidebar.markdown("---")
 
@@ -122,7 +134,9 @@ st.sidebar.markdown("---")
 st.sidebar.header("保存 & 読込")
 
 # 保存
-save_name = st.sidebar.text_input("保存名", value="my_graph", help="グラフを保存する際のベース名です。")
+save_name = st.sidebar.text_input(
+    "保存名", value="my_graph", help="グラフを保存する際のベース名です。"
+)
 if st.sidebar.button("現在のグラフを保存"):
     if st.session_state.graph:
         saved_folder = save_graph_to_json(st.session_state.graph, save_name)
@@ -138,7 +152,7 @@ if saved_experiments:
         "ロードするグラフを選択:",
         options=saved_experiments,
         index=None,
-        placeholder="保存済みグラフを選択..."
+        placeholder="保存済みグラフを選択...",
     )
     if st.sidebar.button("選択したグラフをロード"):
         if selected_exp_to_load:
@@ -159,11 +173,15 @@ G = st.session_state.graph
 
 if G:
     st.success(f"**表示中のグラフ:** `{st.session_state.graph_name}`")
-    st.write(f"ノード数: {G.number_of_nodes()}, エッジ数: {G.number_of_edges()}, 有向グラフ: {G.is_directed()}")
+    st.write(
+        f"ノード数: {G.number_of_nodes()}, エッジ数: {G.number_of_edges()}, 有向グラフ: {G.is_directed()}"
+    )
 
     # streamlit-agraph用のノードとエッジを作成
-    nodes_vis = [Node(id=str(node_id), label=str(node_id), size=15) for node_id in G.nodes()]
-    
+    nodes_vis = [
+        Node(id=str(node_id), label=str(node_id), size=15) for node_id in G.nodes()
+    ]
+
     edges_vis = []
     for u, v, data in G.edges(data=True):
         # 'weight' 属性があればラベルとして表示
@@ -177,7 +195,7 @@ if G:
         directed=G.is_directed(),
         physics=False,  # レイアウトを固定する
         hierarchical=False,
-        edges={"font": {"size": 12, "align": "top", "color": "#333333"}}
+        edges={"font": {"size": 12, "align": "top", "color": "#333333"}},
     )
 
     if nodes_vis:
@@ -185,4 +203,6 @@ if G:
     else:
         st.write("現在のグラフには表示するノードがありません。")
 else:
-    st.warning("表示するグラフがありません。サイドバーから新しいグラフを生成するか、保存済みのグラフをロードしてください。")
+    st.warning(
+        "表示するグラフがありません。サイドバーから新しいグラフを生成するか、保存済みのグラフをロードしてください。"
+    )
