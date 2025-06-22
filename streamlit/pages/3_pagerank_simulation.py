@@ -216,7 +216,7 @@ if st.session_state.get("pr_simulation_results"):
         )
 
     config_viz = Config(
-        width="100%", height=700, directed=G.is_directed(), physics=True
+        width="100%", height=700, directed=G.is_directed(), physics=False
     )
     st.write(f"**ステップ {selected_step} の状態:**")
     st.caption(
