@@ -3,6 +3,7 @@ import pandas as pd
 import sys
 import os
 import networkx as nx
+import json
 from streamlit_agraph import agraph, Node, Edge, Config
 import torch  # HIMモデルがPyTorchを使用
 

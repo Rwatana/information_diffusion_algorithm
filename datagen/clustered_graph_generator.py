@@ -1,31 +1,33 @@
 import networkx as nx
 
-def generate_clustered_graph(num_nodes, p_intra=0.2, p_inter=0.01, seed=None):
+def generate_clustered_graph(num_nodes, num_clusters, p_intra=0.2, p_inter=0.01, seed=None):
     """
-    Generates a graph with two distinct clusters using the stochastic block model.
+    指定されたクラスター数でグラフを生成します。
 
     Args:
-        num_nodes (int): The total number of nodes in the graph.
-        p_intra (float): The probability of an edge within a cluster.
-        p_inter (float): The probability of an edge between the two clusters.
-        seed (int, optional): Seed for the random number generator for reproducibility.
+        num_nodes (int): グラフの総ノード数
+        num_clusters (int): 作成するクラスターの数
+        p_intra (float): クラスター内の辺の接続確率
+        p_inter (float): クラスター間の辺の接続確率
+        seed (int, optional): 乱数生成器のシード値
 
     Returns:
-        nx.Graph: The generated graph with two clusters.
+        nx.Graph: 生成されたグラフ
     """
-    if num_nodes < 2:
-        raise ValueError("Number of nodes must be at least 2.")
+    if num_nodes < num_clusters:
+        raise ValueError("ノード数はクラスター数以上である必要があります。")
 
-    # ノードを2つのクラスターに分割
-    cluster1_nodes = num_nodes // 2
-    cluster2_nodes = num_nodes - cluster1_nodes
-    sizes = [cluster1_nodes, cluster2_nodes]
+    if num_clusters <= 0:
+        raise ValueError("クラスター数は1以上である必要があります。")
 
-    # クラスター内・クラスター間の接続確率を行列で定義
-    probs = [
-        [p_intra, p_inter],
-        [p_inter, p_intra]
-    ]
+    # 各クラスターのノード数を計算
+    sizes = [num_nodes // num_clusters for _ in range(num_clusters)]
+    remainder = num_nodes % num_clusters
+    for i in range(remainder):
+        sizes[i] += 1
+    
+    # 接続確率を行列で定義
+    probs = [[p_intra if i == j else p_inter for j in range(num_clusters)] for i in range(num_clusters)]
 
     # Stochastic Block Modelを用いてグラフを生成
     G = nx.stochastic_block_model(sizes, probs, seed=seed)

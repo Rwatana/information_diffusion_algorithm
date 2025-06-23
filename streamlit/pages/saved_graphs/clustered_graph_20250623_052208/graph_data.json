@@ -1,0 +1,657 @@
+{
+    "directed": false,
+    "multigraph": false,
+    "graph": {
+        "partition": [
+            [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16
+            ],
+            [
+                32,
+                33,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31
+            ],
+            [
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49
+            ]
+        ],
+        "name": "stochastic_block_model"
+    },
+    "nodes": [
+        {
+            "block": 0,
+            "id": 0
+        },
+        {
+            "block": 0,
+            "id": 1
+        },
+        {
+            "block": 0,
+            "id": 2
+        },
+        {
+            "block": 0,
+            "id": 3
+        },
+        {
+            "block": 0,
+            "id": 4
+        },
+        {
+            "block": 0,
+            "id": 5
+        },
+        {
+            "block": 0,
+            "id": 6
+        },
+        {
+            "block": 0,
+            "id": 7
+        },
+        {
+            "block": 0,
+            "id": 8
+        },
+        {
+            "block": 0,
+            "id": 9
+        },
+        {
+            "block": 0,
+            "id": 10
+        },
+        {
+            "block": 0,
+            "id": 11
+        },
+        {
+            "block": 0,
+            "id": 12
+        },
+        {
+            "block": 0,
+            "id": 13
+        },
+        {
+            "block": 0,
+            "id": 14
+        },
+        {
+            "block": 0,
+            "id": 15
+        },
+        {
+            "block": 0,
+            "id": 16
+        },
+        {
+            "block": 1,
+            "id": 32
+        },
+        {
+            "block": 1,
+            "id": 33
+        },
+        {
+            "block": 1,
+            "id": 17
+        },
+        {
+            "block": 1,
+            "id": 18
+        },
+        {
+            "block": 1,
+            "id": 19
+        },
+        {
+            "block": 1,
+            "id": 20
+        },
+        {
+            "block": 1,
+            "id": 21
+        },
+        {
+            "block": 1,
+            "id": 22
+        },
+        {
+            "block": 1,
+            "id": 23
+        },
+        {
+            "block": 1,
+            "id": 24
+        },
+        {
+            "block": 1,
+            "id": 25
+        },
+        {
+            "block": 1,
+            "id": 26
+        },
+        {
+            "block": 1,
+            "id": 27
+        },
+        {
+            "block": 1,
+            "id": 28
+        },
+        {
+            "block": 1,
+            "id": 29
+        },
+        {
+            "block": 1,
+            "id": 30
+        },
+        {
+            "block": 1,
+            "id": 31
+        },
+        {
+            "block": 2,
+            "id": 34
+        },
+        {
+            "block": 2,
+            "id": 35
+        },
+        {
+            "block": 2,
+            "id": 36
+        },
+        {
+            "block": 2,
+            "id": 37
+        },
+        {
+            "block": 2,
+            "id": 38
+        },
+        {
+            "block": 2,
+            "id": 39
+        },
+        {
+            "block": 2,
+            "id": 40
+        },
+        {
+            "block": 2,
+            "id": 41
+        },
+        {
+            "block": 2,
+            "id": 42
+        },
+        {
+            "block": 2,
+            "id": 43
+        },
+        {
+            "block": 2,
+            "id": 44
+        },
+        {
+            "block": 2,
+            "id": 45
+        },
+        {
+            "block": 2,
+            "id": 46
+        },
+        {
+            "block": 2,
+            "id": 47
+        },
+        {
+            "block": 2,
+            "id": 48
+        },
+        {
+            "block": 2,
+            "id": 49
+        }
+    ],
+    "links": [
+        {
+            "propagation_prob": 0.6223471751706616,
+            "source": 1,
+            "target": 11
+        },
+        {
+            "propagation_prob": 0.6902390191127946,
+            "source": 2,
+            "target": 7
+        },
+        {
+            "propagation_prob": 0.5768523016069939,
+            "source": 2,
+            "target": 12
+        },
+        {
+            "propagation_prob": 0.28233975582127285,
+            "source": 2,
+            "target": 24
+        },
+        {
+            "propagation_prob": 0.7331699944408911,
+            "source": 3,
+            "target": 5
+        },
+        {
+            "propagation_prob": 0.8048635212066717,
+            "source": 3,
+            "target": 11
+        },
+        {
+            "propagation_prob": 0.7487644552692378,
+            "source": 3,
+            "target": 15
+        },
+        {
+            "propagation_prob": 0.26100260575972883,
+            "source": 4,
+            "target": 38
+        },
+        {
+            "propagation_prob": 0.7034630584215399,
+            "source": 5,
+            "target": 6
+        },
+        {
+            "propagation_prob": 0.6361409609184031,
+            "source": 5,
+            "target": 7
+        },
+        {
+            "propagation_prob": 0.6734044994504169,
+            "source": 5,
+            "target": 11
+        },
+        {
+            "propagation_prob": 0.7782025417104862,
+            "source": 7,
+            "target": 14
+        },
+        {
+            "propagation_prob": 0.5943285722977494,
+            "source": 8,
+            "target": 13
+        },
+        {
+            "propagation_prob": 0.09848720568618581,
+            "source": 8,
+            "target": 27
+        },
+        {
+            "propagation_prob": 0.6756501253065939,
+            "source": 9,
+            "target": 11
+        },
+        {
+            "propagation_prob": 0.5498738386885187,
+            "source": 9,
+            "target": 12
+        },
+        {
+            "propagation_prob": 0.6420323725286949,
+            "source": 9,
+            "target": 14
+        },
+        {
+            "propagation_prob": 0.5533164427694146,
+            "source": 10,
+            "target": 13
+        },
+        {
+            "propagation_prob": 0.7947171559930091,
+            "source": 11,
+            "target": 15
+        },
+        {
+            "propagation_prob": 0.6548028177675457,
+            "source": 11,
+            "target": 16
+        },
+        {
+            "propagation_prob": 0.6456759607981651,
+            "source": 12,
+            "target": 14
+        },
+        {
+            "propagation_prob": 0.6017412233151355,
+            "source": 12,
+            "target": 15
+        },
+        {
+            "propagation_prob": 0.6630681512044466,
+            "source": 13,
+            "target": 16
+        },
+        {
+            "propagation_prob": 0.6712751220385023,
+            "source": 14,
+            "target": 16
+        },
+        {
+            "propagation_prob": 0.5463481434513072,
+            "source": 32,
+            "target": 33
+        },
+        {
+            "propagation_prob": 0.6632063805128927,
+            "source": 32,
+            "target": 18
+        },
+        {
+            "propagation_prob": 0.6523755340454148,
+            "source": 32,
+            "target": 23
+        },
+        {
+            "propagation_prob": 0.5630393948267687,
+            "source": 32,
+            "target": 26
+        },
+        {
+            "propagation_prob": 0.7770479460881128,
+            "source": 33,
+            "target": 18
+        },
+        {
+            "propagation_prob": 0.6053159453044235,
+            "source": 33,
+            "target": 28
+        },
+        {
+            "propagation_prob": 0.6133165496609482,
+            "source": 33,
+            "target": 31
+        },
+        {
+            "propagation_prob": 0.6524448668907045,
+            "source": 17,
+            "target": 31
+        },
+        {
+            "propagation_prob": 0.5933520560996313,
+            "source": 18,
+            "target": 19
+        },
+        {
+            "propagation_prob": 0.6453713426744464,
+            "source": 18,
+            "target": 31
+        },
+        {
+            "propagation_prob": 0.7261062857922562,
+            "source": 19,
+            "target": 22
+        },
+        {
+            "propagation_prob": 0.604818378009303,
+            "source": 20,
+            "target": 23
+        },
+        {
+            "propagation_prob": 0.7308139989876856,
+            "source": 20,
+            "target": 26
+        },
+        {
+            "propagation_prob": 0.6209240669506748,
+            "source": 21,
+            "target": 24
+        },
+        {
+            "propagation_prob": 0.7152024552847186,
+            "source": 21,
+            "target": 27
+        },
+        {
+            "propagation_prob": 0.7289108399970029,
+            "source": 21,
+            "target": 28
+        },
+        {
+            "propagation_prob": 0.7195345527607362,
+            "source": 22,
+            "target": 24
+        },
+        {
+            "propagation_prob": 0.5880454808634487,
+            "source": 22,
+            "target": 27
+        },
+        {
+            "propagation_prob": 0.14751565378489281,
+            "source": 22,
+            "target": 44
+        },
+        {
+            "propagation_prob": 0.7161649984980618,
+            "source": 23,
+            "target": 24
+        },
+        {
+            "propagation_prob": 0.7666430818122365,
+            "source": 23,
+            "target": 30
+        },
+        {
+            "propagation_prob": 0.619724985719264,
+            "source": 23,
+            "target": 31
+        },
+        {
+            "propagation_prob": 0.6280678385580303,
+            "source": 24,
+            "target": 30
+        },
+        {
+            "propagation_prob": 0.6996797894228637,
+            "source": 26,
+            "target": 30
+        },
+        {
+            "propagation_prob": 0.78125183680166,
+            "source": 26,
+            "target": 31
+        },
+        {
+            "propagation_prob": 0.11697201148447492,
+            "source": 27,
+            "target": 38
+        },
+        {
+            "propagation_prob": 0.5701468004589219,
+            "source": 28,
+            "target": 30
+        },
+        {
+            "propagation_prob": 0.7975560824320762,
+            "source": 28,
+            "target": 31
+        },
+        {
+            "propagation_prob": 0.6142762491182939,
+            "source": 34,
+            "target": 35
+        },
+        {
+            "propagation_prob": 0.7386060330154568,
+            "source": 34,
+            "target": 36
+        },
+        {
+            "propagation_prob": 0.6449315052469775,
+            "source": 34,
+            "target": 38
+        },
+        {
+            "propagation_prob": 0.6309544246166112,
+            "source": 34,
+            "target": 42
+        },
+        {
+            "propagation_prob": 0.6406811921675831,
+            "source": 35,
+            "target": 45
+        },
+        {
+            "propagation_prob": 0.7893957498433313,
+            "source": 35,
+            "target": 46
+        },
+        {
+            "propagation_prob": 0.5674281807541041,
+            "source": 35,
+            "target": 48
+        },
+        {
+            "propagation_prob": 0.5951543938888522,
+            "source": 35,
+            "target": 49
+        },
+        {
+            "propagation_prob": 0.6019450615950453,
+            "source": 37,
+            "target": 38
+        },
+        {
+            "propagation_prob": 0.7673257927451645,
+            "source": 37,
+            "target": 44
+        },
+        {
+            "propagation_prob": 0.675695146166829,
+            "source": 37,
+            "target": 47
+        },
+        {
+            "propagation_prob": 0.6018244072262486,
+            "source": 38,
+            "target": 39
+        },
+        {
+            "propagation_prob": 0.7376755982748664,
+            "source": 38,
+            "target": 40
+        },
+        {
+            "propagation_prob": 0.5503562882259153,
+            "source": 38,
+            "target": 43
+        },
+        {
+            "propagation_prob": 0.6251116270702741,
+            "source": 38,
+            "target": 46
+        },
+        {
+            "propagation_prob": 0.6290522008389438,
+            "source": 40,
+            "target": 44
+        },
+        {
+            "propagation_prob": 0.6604071240772083,
+            "source": 40,
+            "target": 45
+        },
+        {
+            "propagation_prob": 0.8009830830493035,
+            "source": 41,
+            "target": 44
+        },
+        {
+            "propagation_prob": 0.6118933968608432,
+            "source": 41,
+            "target": 45
+        },
+        {
+            "propagation_prob": 0.6995329264389607,
+            "source": 41,
+            "target": 47
+        },
+        {
+            "propagation_prob": 0.6095331867270151,
+            "source": 41,
+            "target": 49
+        },
+        {
+            "propagation_prob": 0.7378894700134169,
+            "source": 42,
+            "target": 43
+        },
+        {
+            "propagation_prob": 0.7773633719103239,
+            "source": 42,
+            "target": 46
+        },
+        {
+            "propagation_prob": 0.7515027756508722,
+            "source": 42,
+            "target": 47
+        }
+    ],
+    "params": {
+        "prob_ranges": {
+            "intra_min": 0.54,
+            "intra_max": 0.81,
+            "inter_min": 0.09,
+            "inter_max": 0.29
+        }
+    }
+}
